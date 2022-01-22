@@ -7,7 +7,7 @@
 system("echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!HOWDY ${USER^^}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ")
 begTime = get_cpu_time()
 
-;this code extract wind speed from HWRF model output for any fixed point / stations using bilinear interpolation.
+;this code extract wind speed from HBL model output for any fixed point / stations using bilinear interpolation.
 
 print("this code extract wind speed from HBL model output for any fixed point / stations using bilinear interpolation. written by Mansur Ali Jisan (mansur@uri.edu)")
 
