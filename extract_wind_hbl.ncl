@@ -1,6 +1,6 @@
 ;howto execute: type following command. change the fname, lonv and latv based on the coordinate of the observation. fname is the output file name, lonv is longitude and latv is the latitude of the observation stations
 
-;usage: ncl 'fname="8727520_HBL.txt"' 'lonv=-83.01917' 'latv=29.13361' extract_wind_hbl.ncl '
+;usage: ncl 'fname="8727520_HBL.txt"' 'lonv=-83.01917' 'latv=29.13361' extract_wind_hbl.ncl 
 
 
 
