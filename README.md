@@ -1,5 +1,5 @@
 # HBL_UTILITIES
-A collection of NCL codes to process URI Hurricane Boundary Layer Wind Data.  
+A collection of NCL codes to process URI Hurricane Boundary Layer Wind Model Data.  
 
 - HBL_to_ADCIRC_fort22.ncl: This code convert HBL wind file in to ADCIRC's Meteorological Forcing File (fort.22)
 
