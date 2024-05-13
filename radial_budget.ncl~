@@ -1,0 +1,5631 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/contrib/cd_string.ncl"
+; Set the initial start time
+start_hour = 0
+start_minute = 0
+start_second = 0
+
+; Set the increment (in minutes)
+increment = 30
+
+; Calculate the number of intervals
+num_intervals = 160
+
+; Create the time strings
+time_strings = new(num_intervals, string)
+
+do i = 0, num_intervals-1
+    ; Format the time string
+    hour_str = sprinti("%02d", start_hour)
+    minute_str = sprinti("%02d", start_minute)
+    second_str = "00"
+
+    time_strings(i) = hour_str + ":" + minute_str + ":" + second_str
+
+    ; Increment the time
+    start_minute = start_minute + increment
+    if (start_minute .ge. 60) then
+        start_minute = start_minute - 60
+        start_hour = start_hour + 1
+    end if
+end do
+
+print(time_strings)
+
+; Initialize a new array to store the new labels
+new_labels = new(160, "string")
+
+landfall_index = 86
+
+; Loop through the array
+do i=0, 159
+  if(i .lt. landfall_index) then
+    total_minutes_before = (landfall_index - i) * increment
+    hours_before = floor(total_minutes_before / 60)
+    minutes_before = mod(total_minutes_before, 60)
+    new_labels(i) = hours_before + " hours " + minutes_before + " minutes before landfall"
+  elseif(i .eq. landfall_index) then
+    new_labels(i) = " Landfall Hour"
+  else
+    total_minutes_after = (i - landfall_index) * increment
+    hours_after = floor(total_minutes_after / 60)
+    minutes_after = mod(total_minutes_after, 60)
+    new_labels(i) = hours_after + " hours " + minutes_after + " minutes after landfall"
+  end if
+end do
+
+time_strings = new_labels
+print(new_labels)
+print(time_strings)
+
+
+
+
+
+
+
+
+
+do nt = 74,86,6
+
+
+f        = addfile("../boundary_model_b_1.3_landfall.nc","r")
+f11      = addfile("../diagnostics_temporal.nc","r")
+f12      = addfile("../boundary_model_b_1.3_oc.nc","r")
+f13      = addfile("../diagnostics_temporal.nc","r")
+mymod = nt
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;land;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+u        = f->um(mymod,1,:,:)
+v        = f->vm(mymod,1,:,:)
+w        = f->wm(mymod,1,:,:)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;Ocean;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+u_oc        = f12->um(nt,1,:,:)
+v_oc        = f12->vm(nt,1,:,:)
+w_oc        = f12->wm(nt,1,:,:)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;Land;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+umdt        = f->umdt(mymod,1,:,:)
+vmdt        = f->vmdt(mymod,1,:,:)
+dudz        = f->dudz(mymod,1,:,:)
+dvdz        = f->dvdz(mymod,1,:,:)
+dudx        = f->dudx(mymod,1,:,:)
+dudy        = f->dudy(mymod,1,:,:)
+dvdx        = f->dvdx(mymod,1,:,:)
+dvdy        = f->dvdy(mymod,1,:,:)
+
+px11        = f->pgfx(mymod,:,:)
+py11        = f->pgfy(mymod,:,:)
+px          = -px11
+py          = -py11
+vtur_u2d    = f->vtur_u2d(mymod,1,:,:)
+vtur_v2d    = f->vtur_v2d(mymod,1,:,:)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;ocean;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+umdt_oc     = f12->umdt(nt,1,:,:)
+vmdt_oc     = f12->vmdt(nt,1,:,:)
+dudz_oc     = f12->dudz(nt,1,:,:)
+dvdz_oc     = f12->dvdz(nt,1,:,:)
+px11_oc     = f12->pgfx(nt,:,:)
+py11_oc     = f12->pgfy(nt,:,:)
+px_oc       = -px11_oc
+py_oc       = -py11_oc
+vtur_u2d_oc = f12->vtur_u2d(nt,1,:,:)
+vtur_v2d_oc = f12->vtur_v2d(nt,1,:,:)
+dudx_oc        = f12->dudx(mymod,1,:,:)
+dudy_oc        = f12->dudy(mymod,1,:,:)
+dvdx_oc        = f12->dvdx(mymod,1,:,:)
+dvdy_oc        = f12->dvdy(mymod,1,:,:)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+zz = fspan(0,3000,101)
+
+;u11      = f->um(mymod,:,:,:)
+;v11      = f->vm(mymod,:,:,:)
+
+
+xcen1     = f11->x_center(nt)
+ycen1     = f11->y_center(nt)
+
+xcen     = f11->x_center(mymod)
+ycen     = f11->y_center(mymod)
+
+
+lon_cent = f11->x_center(nt)
+lat_cent = f11->y_center(nt)
+
+print(xcen+" "+ycen)
+print(xcen1+" "+ycen1)
+
+coastline1 = gc_latlon(lat_cent,lon_cent, 30, lon_cent,2,4)
+coastline =  coastline1
+coastline2 =  sprintf("%0.2f",coastline)
+
+
+X        = f->x
+Y        = f->y
+pie      = 4.0*atan(1.0)
+deg2rad  = pie/180.0
+x0    = xcen
+y0    = ycen
+f0    = x0*deg2rad
+l0    = y0*deg2rad
+lonstart = -120.0
+latstart = 0.0
+resol    = 1.0/24.0
+rearth   = 6.37122e+06
+lats     = new((/1800/),"float")
+lons     = new((/2300/),"float")
+im       = 2300
+jm       = 1800
+deltax   = new((/im,jm/),"float")
+deltay   = new((/im,jm/),"float")
+dxdy    = new((/im,jm/),"float")
+
+r        = new((/im,jm/),"float")
+theta    = new((/1802,1802/),"float")
+alphaw   = new((/im,jm/),"float")
+nx       = 1802
+ny       = 1802
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Land;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+u_r      = new((/1802,1802/),"float")
+u_r_3d   = new((/101,1802,1802/),"float")
+v_t_3d   = new((/101,1802,1802/),"float")
+v_t      = new((/1802,1802/),"float")
+u_r1     = new((/1802,1802/),"float")
+v_t1     = new((/1802,1802/),"float")
+dudr     = new((/1802,1802/),"float")
+dudr      = new((/ny,nx/),float)
+dudtheta  = new((/ny,nx/),float)
+dvdr      = new((/ny,nx/),float)
+dvdtheta  = new((/ny,nx/),float)
+durdr     = new((/ny,nx/),float)
+durdtheta = new((/ny,nx/),float)
+dvtdr     = new((/ny,nx/),float)
+dvtdtheta = new((/ny,nx/),float)
+durdz     = new((/ny,nx/),float)
+dvtdz     = new((/ny,nx/),float)
+dvrdt     = new((/ny,nx/),float)
+dvtdt     = new((/ny,nx/),float)
+dpdr      = new((/1802,1802/),float)
+dpdr2     = new((/1802,1802/),"float")
+dpdr3     = new((/1802,1802/),"float")
+utur_r    = new((/ny,nx/),float)
+vtur_t    = new((/ny,nx/),float)
+term4     = new((/ny,nx/),float)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;Ocean;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+u_r_oc      = new((/1802,1802/),"float")
+u_r_3d_oc   = new((/101,1802,1802/),"float")
+v_t_3d_oc   = new((/101,1802,1802/),"float")
+v_t_oc      = new((/1802,1802/),"float")
+u_r1_oc     = new((/1802,1802/),"float")
+v_t1_oc     = new((/1802,1802/),"float")
+dudr_oc     = new((/1802,1802/),"float")
+dudr_oc      = new((/ny,nx/),float)
+dudtheta_oc  = new((/ny,nx/),float)
+dvdr_oc      = new((/ny,nx/),float)
+dvdtheta_oc  = new((/ny,nx/),float)
+durdr_oc     = new((/ny,nx/),float)
+durdtheta_oc = new((/ny,nx/),float)
+dvtdr_oc     = new((/ny,nx/),float)
+dvtdtheta_oc = new((/ny,nx/),float)
+durdz_oc     = new((/ny,nx/),float)
+dvtdz_oc     = new((/ny,nx/),float)
+dvrdt_oc     = new((/ny,nx/),float)
+dvtdt_oc     = new((/ny,nx/),float)
+dpdr_oc      = new((/1802,1802/),float)
+dpdr2_oc     = new((/1802,1802/),"float")
+dpdr3_oc     = new((/1802,1802/),"float")
+utur_r_oc    = new((/ny,nx/),float)
+vtur_t_oc    = new((/ny,nx/),float)
+term4_oc     = new((/ny,nx/),float)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+dx_interp = new((/1802,1802/),"float")
+dy_interp = new((/1802,1802/),"float")
+r_interpolated = new((/1802,1802/),"float")
+icen     = nx/2 + 1
+jcen     = ny/2 + 1
+stepx    = 1.0E03
+stepy    = 1.0E03
+xgrid    = new((/nx/),"float")
+ygrid    = new((/ny/),"float")
+epsilon  = 1.0e-12  ; small number to avoid division by zero
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;smaller grid;;;;;;;;;;;;;;;;;;;;;;;;
+
+nlon        = dimsizes(X)
+nlat        = dimsizes(Y)
+res_lat        = stepy/(deg2rad*rearth)
+res_lon        = stepx/(deg2rad*rearth*cos(lat_cent*deg2rad))
+lat_cent_value = abs(lat_cent)
+lon_cent_value = abs(lon_cent)
+
+
+latgrid_center = fspan( (-floor(nlat/2)+1),(floor(nlat/2)), 1802)
+latgrid_center = latgrid_center *  res_lat
+lat            = latgrid_center+ lat_cent_value
+lat            = abs(lat)
+
+longrid_center = fspan( (-floor(nlon/2)+1), floor(nlon/2), 1802)
+
+
+longrid_center = longrid_center*-1
+longrid_center = longrid_center *  res_lon
+
+lon            = longrid_center + lon_cent_value
+lon            = abs(lon)
+lon            = lon*(-1)
+printMinMax(lat,False)
+printMinMax(lon,False)
+
+
+
+do i=0,nx-1
+do j=0,ny-1
+
+f1             = lon(i)*deg2rad
+l1             = lat(j)*deg2rad
+dx_interp(j,i) = rearth*cos(l0)*(f1-f0)
+dy_interp(j,i) = rearth*(l1-l0)
+r_interpolated(j,i) = sqrt(dx_interp(j,i)^2+dy_interp(j,i)^2)
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;Land;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+dudx = center_finite_diff_n(u,dx_interp,False,0,1)
+dudy = center_finite_diff_n(u,dy_interp,False,0,0)
+dvdx = center_finite_diff_n(v,dx_interp,False,0,1)
+dvdy = center_finite_diff_n(v,dy_interp,False,0,0)
+
+;;;;;;;;;;;;;;;;;;;;;;Ocean;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+dudx_oc = center_finite_diff_n(u_oc,dx_interp,False,0,1)
+dudy_oc = center_finite_diff_n(u_oc,dy_interp,False,0,0)
+dvdx_oc = center_finite_diff_n(v_oc,dx_interp,False,0,1)
+dvdy_oc = center_finite_diff_n(v_oc,dy_interp,False,0,0)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+theta(i,j) = atan2(dy_interp(i,j),dx_interp(i,j))
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;land;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+u_r1(i,j)     = u(i,j)*cos(theta(i,j)) + v(i,j)*sin(theta(i,j))
+
+end do
+end do
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+u_r1_oc(i,j)     = u_oc(i,j)*cos(theta(i,j)) + v_oc(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+v_t1(i,j)     = -u(i,j)*sin(theta(i,j)) + v(i,j)*cos(theta(i,j))
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+v_t1_oc(i,j)     = -u_oc(i,j)*sin(theta(i,j)) + v_oc(i,j)*cos(theta(i,j))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+r_interpolated@_FillValue = -999
+
+r_inv = 1. / where(r_interpolated.ne.0, r_interpolated, r_interpolated@_FillValue)
+
+cent = v_t1^2*r_inv
+cent_oc = v_t1_oc^2*r_inv
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvrdt(i,j)     = umdt(i,j)*cos(theta(i,j)) + vmdt(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvrdt_oc(i,j)     = umdt_oc(i,j)*cos(theta(i,j)) + vmdt_oc(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvtdt(i,j)     = -umdt(i,j)*sin(theta(i,j)) + vmdt(i,j)*cos(theta(i,j))
+
+end do
+end do
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvtdt_oc(i,j)     = -umdt_oc(i,j)*sin(theta(i,j)) + vmdt_oc(i,j)*cos(theta(i,j))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dpdr(i,j)     = px(i,j)*cos(theta(i,j)) + py(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dpdr_oc(i,j)     = px_oc(i,j)*cos(theta(i,j)) + py_oc(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+utur_r(i,j)     = vtur_u2d(i,j)*cos(theta(i,j)) + vtur_v2d(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+vtur_t(i,j)     = -vtur_u2d(i,j)*sin(theta(i,j)) + vtur_v2d(i,j)*cos(theta(i,j))
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+utur_r_oc(i,j)     = vtur_u2d_oc(i,j)*cos(theta(i,j)) + vtur_v2d_oc(i,j)*sin(theta(i,j))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+vtur_t_oc(i,j)     = -vtur_u2d_oc(i,j)*sin(theta(i,j)) + vtur_v2d_oc(i,j)*cos(theta(i,j))
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dudr(i,j)                = (dudx(i,j)*cos(theta(i,j))) + (dudy(i,j)*sin(theta(i,j)))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dudr_oc(i,j)                = (dudx_oc(i,j)*cos(theta(i,j))) + (dudy_oc(i,j)*sin(theta(i,j)))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dudtheta(i,j)            = (((-dudx(i,j))*(r_interpolated(i,j)))*sin(theta(i,j))) + (((dudy(i,j))*r_interpolated(i,j))*cos(theta(i,j)))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dudtheta_oc(i,j)            = (((-dudx_oc(i,j))*(r_interpolated(i,j)))*sin(theta(i,j))) + (((dudy_oc(i,j))*r_interpolated(i,j))*cos(theta(i,j)))
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvdr(i,j)                = (dvdx(i,j)*cos(theta(i,j))) + (dvdy(i,j)*sin(theta(i,j)))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvdr_oc(i,j)                = (dvdx_oc(i,j)*cos(theta(i,j))) + (dvdy_oc(i,j)*sin(theta(i,j)))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvdtheta(i,j)            = ((r_interpolated(i,j)*(-dvdx(i,j)))*sin(theta(i,j))) + ((dvdy(i,j)*r_interpolated(i,j))*cos(theta(i,j)))
+
+end do
+end do
+
+
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvdtheta_oc(i,j)            = ((r_interpolated(i,j)*(-dvdx_oc(i,j)))*sin(theta(i,j))) + ((dvdy_oc(i,j)*r_interpolated(i,j))*cos(theta(i,j)))
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;  dudtheta = center_finite_diff_n(u_r1,theta,False,0,1)
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+durdr(i,j)               = ((dudr(i,j)*cos(theta(i,j))) + (dvdr(i,j)*sin(theta(i,j))))
+
+
+end do
+end do
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+durdr_oc(i,j)               = ((dudr_oc(i,j)*cos(theta(i,j))) + (dvdr_oc(i,j)*sin(theta(i,j))))
+
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+durdz(i,j)               = dudz(i,j)*cos(theta(i,j)) + dvdz(i,j)*sin(theta(i,j))
+
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvtdz(i,j)               = -dudz(i,j)*sin(theta(i,j)) + dvdz(i,j)*cos(theta(i,j))
+
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+durdz_oc(i,j)               = dudz_oc(i,j)*cos(theta(i,j)) + dvdz_oc(i,j)*sin(theta(i,j))
+
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+dvtdz_oc(i,j)               = -dudz_oc(i,j)*sin(theta(i,j)) + dvdz_oc(i,j)*cos(theta(i,j))
+
+
+end do
+end do
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+durdtheta(i,j)           = ((dudtheta(i,j)*cos(theta(i,j))) - (u(i,j)*sin(theta(i,j))) + ((dvdtheta(i,j)*sin(theta(i,j))) + (v(i,j)*cos(theta(i,j)))))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+durdtheta_oc(i,j)           = ((dudtheta_oc(i,j)*cos(theta(i,j))) - (u_oc(i,j)*sin(theta(i,j))) + ((dvdtheta_oc(i,j)*sin(theta(i,j))) + (v_oc(i,j)*cos(theta(i,j)))))
+
+end do
+end do
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+
+dvtdr(i,j)               = (-dudr(i,j)*sin(theta(i,j))) + (dvdr(i,j)*cos(theta(i,j)))
+
+end do
+end do
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+
+dvtdr_oc(i,j)               = (-dudr_oc(i,j)*sin(theta(i,j))) + (dvdr_oc(i,j)*cos(theta(i,j)))
+
+end do
+end do
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+
+dvtdtheta(i,j)           = ((-dudtheta(i,j))*sin(theta(i,j))) - (u(i,j)*cos(theta(i,j))) + (dvdtheta(i,j)*cos(theta(i,j))) - (v(i,j)*sin(theta(i,j)))
+
+
+end do
+end do
+
+
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+
+dvtdtheta_oc(i,j)           = ((-dudtheta_oc(i,j))*sin(theta(i,j))) - (u_oc(i,j)*cos(theta(i,j))) + (dvdtheta_oc(i,j)*cos(theta(i,j))) - (v_oc(i,j)*sin(theta(i,j)))
+
+
+end do
+end do
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+lonpt = 560-600
+latpt = 600-600
+
+
+;  r_interpolated@_FillValue = 0
+;  v_t1@_FillValue = 0
+
+term0 = tofloat(dvrdt)
+term1 = tofloat(u_r1*durdr)
+term2 = tofloat((v_t1*r_inv)*durdtheta)
+term3 = tofloat(w*durdz)
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+
+term4(i,j) = v_t1(i,j)^2*r_inv(i,j)
+
+end do
+end do
+
+
+term5 = tofloat(6.163464729226361e-05*v_t1)
+IMB   = tofloat(-dpdr+term4+term5)
+UBL   = tofloat(utur_r)
+dudt1 = tofloat(term0+term1+term2+term3)
+dt_n  = tofloat(IMB+UBL-term1-term2-term3)
+LHS   = term0+term1+term2+term3-term4-term5
+t1_n = -term1
+t2_n = -term2
+t3_n = -term3
+
+ws   = sqrt(u_r1^2+v_t1^2)
+
+LHS@_FillValue = -999
+RHS = -dpdr+utur_r
+diff_lhs_rhs = LHS+dpdr-utur_r
+diff_lhs_rhs = diff_lhs_rhs*1e-4
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+lonpt = 560-600
+latpt = 600-600
+
+
+;  r_interpolated@_FillValue = 0
+;  v_t1@_FillValue = 0
+
+term0_oc = tofloat(dvrdt_oc)
+term1_oc = tofloat(u_r1_oc*durdr_oc)
+term2_oc = tofloat((v_t1_oc*r_inv)*durdtheta_oc)
+term3_oc = tofloat(w_oc*durdz_oc)
+
+do i = 0, nx-1
+do j = 0, ny-1
+
+
+term4_oc(i,j) = v_t1_oc(i,j)^2*r_inv(i,j)
+
+end do
+end do
+
+
+term5_oc = tofloat(6.163464729226361e-05*v_t1_oc)
+IMB_oc   = tofloat(-dpdr_oc+term4_oc+term5_oc)
+UBL_oc   = tofloat(utur_r_oc)
+dudt1_oc = tofloat(term0_oc+term1_oc+term2_oc+term3_oc)
+dt_n_oc  = tofloat(IMB_oc+UBL_oc-term1_oc-term2_oc-term3_oc)
+LHS_oc   = term0_oc+term1_oc+term2_oc+term3_oc-term4_oc-term5_oc
+t1_n_oc = -term1_oc
+t2_n_oc = -term2_oc
+t3_n_oc = -term3_oc
+ws_oc   = sqrt(u_r1_oc^2+v_t1_oc^2)
+
+LHS_oc@_FillValue = -999
+RHS_oc = -dpdr_oc+utur_r_oc
+diff_lhs_rhs_oc = LHS_oc+dpdr_oc-utur_r_oc
+diff_lhs_rhs_oc = diff_lhs_rhs_oc*1e-4
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+IMB_DIFF  = IMB-IMB_oc
+UBL_DIFF  = UBL-UBL_oc
+t1_n_DIFF = t1_n - t1_n_oc
+t2_n_DIFF = t2_n - t2_n_oc
+t3_n_DIFF = t3_n - t3_n_oc
+dudt1_DIFF= dudt1 - dudt1_oc
+dt_n_DIFF = (dt_n - dt_n_oc)
+u_r1_DIFF = u_r1 - u_r1_oc
+v_t1_DIFF = v_t1 - v_t1_oc
+ws_DIFF   = ws - ws_oc
+t0_DIFF   = (term0 - term0_oc)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+nlon        = dimsizes(X)
+nlat        = dimsizes(Y)
+
+latgrid_center = fspan( (-floor(nlat/2)+1),(floor(nlat/2)), 1802)
+latgrid_center = latgrid_center
+lat1           = latgrid_center
+
+
+longrid_center = fspan( (-floor(nlon/2)+1), floor(nlon/2), 1802)
+
+
+longrid_center = longrid_center
+longrid_center = longrid_center
+
+lon1            = longrid_center
+
+
+lat1!0        = "lat1"
+lat1@units    = "km"
+lat1&lat1     = lat1
+
+lon1!0        = "lon1"
+lon1@units    = "km"
+lon1&lon1     = lon1
+
+LHS!0        = "lon1"
+LHS!1        = "lat1"
+LHS&lat1     = lat1
+LHS&lon1     = lon1
+
+RHS!0        = "lon1"
+RHS!1        = "lat1"
+RHS&lat1     = lat1
+RHS&lon1     = lon1
+
+term0!0        = "lon1"
+term0!1        = "lat1"
+term0&lat1     = lat1
+term0&lon1     = lon1
+
+term1!0        = "lon1"
+term1!1        = "lat1"
+term1&lat1     = lat1
+term1&lon1     = lon1
+
+term2!0        = "lon1"
+term2!1        = "lat1"
+term2&lat1     = lat1
+term2&lon1     = lon1
+
+term3!0        = "lon1"
+term3!1        = "lat1"
+term3&lat1     = lat1
+term3&lon1     = lon1
+
+term4!0        = "lon1"
+term4!1        = "lat1"
+term4&lat1     = lat1
+term4&lon1     = lon1
+
+term5!0        = "lon1"
+term5!1        = "lat1"
+term5&lat1     = lat1
+term5&lon1     = lon1
+
+
+dudz!0        = "lon1"
+dudz!1        = "lat1"
+dudz&lat1     = lat1
+dudz&lon1     = lon1
+
+dvdz!0        = "lon1"
+dvdz!1        = "lat1"
+dvdz&lat1     = lat1
+dvdz&lon1     = lon1
+
+durdz!0        = "lon1"
+durdz!1        = "lat1"
+durdz&lat1     = lat1
+durdz&lon1     = lon1
+
+durdz!0        = "lon1"
+durdz!1        = "lat1"
+durdz&lat1     = lat1
+durdz&lon1     = lon1
+
+w!0        = "lon1"
+w!1        = "lat1"
+w&lat1     = lat1
+w&lon1     = lon1
+
+
+utur_r!0        = "lon1"
+utur_r!1        = "lat1"
+utur_r&lat1     = lat1
+utur_r&lon1     = lon1
+
+
+UBL_DIFF!0      = "lon1"
+UBL_DIFF!1      = "lat1"
+UBL_DIFF&lat1   = lat1
+UBL_DIFF&lon1   = lon1
+
+IMB_DIFF!0      = "lon1"
+IMB_DIFF!1      = "lat1"
+IMB_DIFF&lat1   = lat1
+IMB_DIFF&lon1   = lon1
+
+
+dpdr!0        = "lon1"
+dpdr!1        = "lat1"
+dpdr&lat1     = lat1
+dpdr&lon1     = lon1
+
+
+IMB!0        = "lon1"
+IMB!1        = "lat1"
+IMB&lat1     = lat1
+IMB&lon1     = lon1
+
+UBL!0        = "lon1"
+UBL!1        = "lat1"
+UBL&lat1     = lat1
+UBL&lon1     = lon1
+
+
+dt_n!0        = "lon1"
+dt_n!1        = "lat1"
+dt_n&lat1     = lat1
+dt_n&lon1     = lon1
+
+dudt1!0        = "lon1"
+dudt1!1        = "lat1"
+dudt1&lat1     = lat1
+dudt1&lon1     = lon1
+
+
+diff_lhs_rhs!0        = "lon1"
+diff_lhs_rhs!1        = "lat1"
+diff_lhs_rhs&lat1     = lat1
+diff_lhs_rhs&lon1     = lon1
+
+
+u_r1!0        = "lon1"
+u_r1!1        = "lat1"
+u_r1&lat1     = lat1
+u_r1&lon1     = lon1
+
+v_t1!0        = "lon1"
+v_t1!1        = "lat1"
+v_t1&lat1     = lat1
+v_t1&lon1     = lon1
+
+
+u!0        = "lon1"
+u!1        = "lat1"
+u&lat1     = lat1
+u&lon1     = lon1
+
+v!0        = "lon1"
+v!1        = "lat1"
+v&lat1     = lat1
+v&lon1     = lon1
+
+ws!0        = "lon1"
+ws!1        = "lat1"
+ws&lat1     = lat1
+ws&lon1     = lon1
+
+
+t1_n!0        = "lon1"
+t1_n!1        = "lat1"
+t1_n&lat1     = lat1
+t1_n&lon1     = lon1
+
+t2_n!0        = "lon1"
+t2_n!1        = "lat1"
+t2_n&lat1     = lat1
+t2_n&lon1     = lon1
+
+t3_n!0        = "lon1"
+t3_n!1        = "lat1"
+t3_n&lat1     = lat1
+t3_n&lon1     = lon1
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+LHS_oc!0        = "lon1"
+LHS_oc!1        = "lat1"
+LHS_oc&lat1     = lat1
+LHS_oc&lon1     = lon1
+
+RHS_oc!0        = "lon1"
+RHS_oc!1        = "lat1"
+RHS_oc&lat1     = lat1
+RHS_oc&lon1     = lon1
+
+term0_oc!0        = "lon1"
+term0_oc!1        = "lat1"
+term0_oc&lat1     = lat1
+term0_oc&lon1     = lon1
+
+term1_oc!0        = "lon1"
+term1_oc!1        = "lat1"
+term1_oc&lat1     = lat1
+term1_oc&lon1     = lon1
+term2_oc!0        = "lon1"
+term2_oc!1        = "lat1"
+term2_oc&lat1     = lat1
+term2_oc&lon1     = lon1
+term3_oc!0        = "lon1"
+term3_oc!1        = "lat1"
+term3_oc&lat1     = lat1
+term3_oc&lon1     = lon1
+term4_oc!0        = "lon1"
+term4_oc!1        = "lat1"
+term4_oc&lat1     = lat1
+term4_oc&lon1     = lon1
+term5_oc!0        = "lon1"
+term5_oc!1        = "lat1"
+term5_oc&lat1     = lat1
+term5_oc&lon1     = lon1
+
+dudz_oc!0        = "lon1"
+dudz_oc!1        = "lat1"
+dudz_oc&lat1     = lat1
+dudz_oc&lon1     = lon1
+dvdz_oc!0        = "lon1"
+dvdz_oc!1        = "lat1"
+dvdz_oc&lat1     = lat1
+dvdz_oc&lon1     = lon1
+durdz_oc!0        = "lon1"
+durdz_oc!1        = "lat1"
+durdz_oc&lat1     = lat1
+durdz_oc&lon1     = lon1
+durdz_oc!0        = "lon1"
+durdz_oc!1        = "lat1"
+durdz_oc&lat1     = lat1
+durdz_oc&lon1     = lon1
+
+w_oc!0        = "lon1"
+w_oc!1        = "lat1"
+w_oc&lat1     = lat1
+w_oc&lon1     = lon1
+
+
+
+utur_r_oc!0        = "lon1"
+utur_r_oc!1        = "lat1"
+utur_r_oc&lat1     = lat1
+utur_r_oc&lon1     = lon1
+
+
+
+dpdr_oc!0        = "lon1"
+dpdr_oc!1        = "lat1"
+dpdr_oc&lat1     = lat1
+dpdr_oc&lon1     = lon1
+
+
+IMB_oc!0        = "lon1"
+IMB_oc!1        = "lat1"
+IMB_oc&lat1     = lat1
+IMB_oc&lon1     = lon1
+UBL_oc!0        = "lon1"
+UBL_oc!1        = "lat1"
+UBL_oc&lat1     = lat1
+UBL_oc&lon1     = lon1
+
+
+dt_n_oc!0        = "lon1"
+dt_n_oc!1        = "lat1"
+dt_n_oc&lat1     = lat1
+dt_n_oc&lon1     = lon1
+
+dudt1_oc!0        = "lon1"
+dudt1_oc!1        = "lat1"
+dudt1_oc&lat1     = lat1
+dudt1_oc&lon1     = lon1
+
+
+diff_lhs_rhs_oc!0        = "lon1"
+diff_lhs_rhs_oc!1        = "lat1"
+diff_lhs_rhs_oc&lat1     = lat1
+diff_lhs_rhs_oc&lon1     = lon1
+
+
+u_r1_oc!0        = "lon1"
+u_r1_oc!1        = "lat1"
+u_r1_oc&lat1     = lat1
+u_r1_oc&lon1     = lon1
+v_t1_oc!0        = "lon1"
+v_t1_oc!1        = "lat1"
+v_t1_oc&lat1     = lat1
+v_t1_oc&lon1     = lon1
+
+
+u_oc!0        = "lon1"
+u_oc!1        = "lat1"
+u_oc&lat1     = lat1
+u_oc&lon1     = lon1
+v_oc!0        = "lon1"
+v_oc!1        = "lat1"
+v_oc&lat1     = lat1
+v_oc&lon1     = lon1
+
+
+t1_n_oc!0        = "lon1"
+t1_n_oc!1        = "lat1"
+t1_n_oc&lat1     = lat1
+t1_n_oc&lon1     = lon1
+t2_n_oc!0        = "lon1"
+t2_n_oc!1        = "lat1"
+t2_n_oc&lat1     = lat1
+t2_n_oc&lon1     = lon1
+t3_n_oc!0        = "lon1"
+t3_n_oc!1        = "lat1"
+t3_n_oc&lat1     = lat1
+t3_n_oc&lon1     = lon1
+
+
+t1_n_DIFF!0        = "lon1"
+t1_n_DIFF!1        = "lat1"
+t1_n_DIFF&lat1     = lat1
+t1_n_DIFF&lon1     = lon1
+t2_n_DIFF!0        = "lon1"
+t2_n_DIFF!1        = "lat1"
+t2_n_DIFF&lat1     = lat1
+t2_n_DIFF&lon1     = lon1
+t3_n_DIFF!0        = "lon1"
+t3_n_DIFF!1        = "lat1"
+t3_n_DIFF&lat1     = lat1
+t3_n_DIFF&lon1     = lon1
+
+ws_oc!0        = "lon1"
+ws_oc!1        = "lat1"
+ws_oc&lat1     = lat1
+ws_oc&lon1     = lon1
+
+ws_DIFF!0        = "lon1"
+ws_DIFF!1        = "lat1"
+ws_DIFF&lat1     = lat1
+ws_DIFF&lon1     = lon1
+
+u_r1_DIFF!0        = "lon1"
+u_r1_DIFF!1        = "lat1"
+u_r1_DIFF&lat1     = lat1
+u_r1_DIFF&lon1     = lon1
+
+v_t1_DIFF!0        = "lon1"
+v_t1_DIFF!1        = "lat1"
+v_t1_DIFF&lat1     = lat1
+v_t1_DIFF&lon1     = lon1
+
+
+t0_DIFF!0        = "lon1"
+t0_DIFF!1        = "lat1"
+t0_DIFF&lat1     = lat1
+t0_DIFF&lon1     = lon1
+
+dt_n_DIFF!0        = "lon1"
+dt_n_DIFF!1        = "lat1"
+dt_n_DIFF&lat1     = lat1
+dt_n_DIFF&lon1     = lon1
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(u_r1)
+dmax1        = max(u_r1)
+dmin         = decimalPlaces(dmin1,2,True)
+dmax         = decimalPlaces(dmax1,2,True)
+
+
+wks = gsn_open_wks("png","u_r_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;  gsn_reverse_colormap(wks)
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.016
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -30
+res@cnMaxLevelValF       = 5
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min = "+ dmin+" ms~S~-1~N~"
+res@gsnCenterString  = " "
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.036
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@trXMinF = -300
+res@trXMaxF = 300
+res@trYMinF = -300
+res@trYMaxF = 300
+res@tmXBLabelsOn  = True
+res@tmYLLabelsOn  = True
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+
+;  res@tmXBLabels = "Distance from Center (km) "
+;  res@tmYLLabels = "Distance from Center (km) "
+
+
+;  res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+;  res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                            = gsn_csm_contour(wks,u_r1,res)
+
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -30.0                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 5.0                    ; set the maximum contour level
+res1@cnLevelSpacingF = 2.5                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@tmXBLabels = "Distance from Center (km) "
+res1@tmXBLabels = "Distance from Center (km) "
+res1@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res1@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+
+
+contour_psl =gsn_csm_contour(wks,u_r1,res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+
+resp                   = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+;  dum =gsn_add_polyline(wks,plot,600,600,resp)
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+; Coordinates for the horizontal line
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+dmin1        = 0
+dmax1        = max(v_t1)
+dmin         = decimalPlaces(dmin1,2,True)
+dmax         = decimalPlaces(dmax1,2,True)
+
+
+wks = gsn_open_wks("ps","v_t_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;  gsn_reverse_colormap(wks)
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.016
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = 0
+res@cnMaxLevelValF       = 50
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "max = "+dmax+" ms~S~-1~N~"
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = " Tangential wind (Vt) "
+
+res@gsnCenterString  = " "
+;  res@gsnRightString = "max = "+dmax+" m/s"
+
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.036
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@trXMinF = -300
+res@trXMaxF = 300
+res@trYMinF = -300
+res@trYMaxF = 300
+res@tmXTOn = False
+res@tmYROn = False
+
+;  res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+;  res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.011
+res@tiYAxisFontHeightF = 0.011
+
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                            = gsn_csm_contour(wks,v_t1,res)
+
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = 0.0                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 50.0                    ; set the maximum contour level
+res1@cnLevelSpacingF = 5                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res1@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+
+contour_psl = gsn_csm_contour(wks,v_t1,res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+;  dum =gsn_add_polyline(wks,plot,600,600,resp)
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+dmin1        = min(u_r1_oc)
+dmax1        = max(u_r1_oc)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","u_r_oc_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;  gsn_reverse_colormap(wks)
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXTOn = False
+res@tmYROn = False
+res@tmXBLabelFontHeightF = 0.016
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -30
+res@cnMaxLevelValF       = 5
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min = "+ dmin+" ms~S~-1~N~"
+res@gsnCenterString  = " "
+;  res@gsnRightString = "max = "+dmax+" m/s"
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.036
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@trXMinF = -300
+res@trXMaxF = 300
+res@trYMinF = -300
+res@trYMaxF = 300
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+
+plot                            = gsn_csm_contour(wks,u_r1_oc,res)
+
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -30.0                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 5.0                    ; set the maximum contour level
+res1@cnLevelSpacingF = 2.5                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,u_r1_oc,res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+;  dum =gsn_add_polyline(wks,plot,600,600,resp)
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+;polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+
+
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+dmin1        = 0
+dmax1        = max(v_t1_oc)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","v_t_oc_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;  gsn_reverse_colormap(wks)
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.016
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = 0
+res@cnMaxLevelValF       = 50
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "max = "+dmax+" ms~S~-1~N~"
+res@gsnCenterString  = ""
+;  res@gsnRightString = "max = "+dmax+" m/s"
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = " Tangential wind (Vt) "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@trXMinF = -300
+res@trXMaxF = 300
+res@trYMinF = -300
+res@trYMaxF = 300
+res@tmXTOn = False
+res@tmYROn = False
+
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                            = gsn_csm_contour(wks,v_t1_oc,res)
+
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = 0.0                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 50.0                    ; set the maximum contour level
+res1@cnLevelSpacingF = 5                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,v_t1_oc,res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+;  dum =gsn_add_polyline(wks,plot,600,600,resp)
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+;polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+
+delete(res1)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(t1_n_DIFF)
+dmax1        = max(t1_n_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t1_90_185_lhs2_final_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.003
+res@cnMaxLevelValF       = 0.003
+res@cnLevelSpacingF      = .0001
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,t1_n_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0001                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineThicknessF    = 2.0
+
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+
+contour_psl = gsn_csm_contour(wks,t1_n_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+delete(res)
+delete(res1)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(t1_n)
+dmax1        = max(t1_n)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t1_90_185_lhs2_final_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.015
+res@cnMaxLevelValF       = 0.015
+res@cnLevelSpacingF      = .0015
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,t1_n(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                    ; set the maximum contour level
+res1@cnLevelSpacingF = 0.00025                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,t1_n(:,:),res1)
+
+;;overlay(plot,contour_psl)
+
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+dmin1        = min(t2_n_DIFF)
+dmax1        = max(t2_n_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t2_90_185_lhs2_final_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.003
+res@cnMaxLevelValF       = 0.003
+res@cnLevelSpacingF      = .0001
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = "-vt/r*(dvr/dtheta) ";
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,t2_n_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                    ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0001                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+
+contour_psl = gsn_csm_contour(wks,t2_n_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+dmin1        = min(t2_n)
+dmax1        = max(t2_n)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t2_90_185_lhs2_final_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.03
+res@cnMaxLevelValF       = 0.03
+res@cnLevelSpacingF      = .0015
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = "-vt/r*(dvr/dtheta) ";
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,t2_n(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                    ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0005                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 1.5
+
+contour_psl = gsn_csm_contour(wks,t2_n(:,:),res1)
+
+;;overlay(plot,contour_psl)
+
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+dmin1        = min(t3_n_DIFF)
+dmax1        = max(t3_n_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t3_90_185_lhs2_final_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+; gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+;es@cnLevelSelectionMode = "ManualLevels"
+;es@cnMinLevelValF       = -0.015
+;rs@cnMaxLevelValF       = 0.015
+;rs@cnLevelSpacingF      = .001
+
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.003
+res@cnMaxLevelValF       = 0.003
+res@cnLevelSpacingF      = .0001
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,t3_n_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0001                    ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+
+contour_psl = gsn_csm_contour(wks,t3_n_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+
+dmin1        = min(t3_n)
+dmax1        = max(t3_n)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t3_90_185_lhs2_final_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+; gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+;es@cnLevelSelectionMode = "ManualLevels"
+;es@cnMinLevelValF       = -0.015
+;rs@cnMaxLevelValF       = 0.015
+;rs@cnLevelSpacingF      = .001
+
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.015
+res@cnMaxLevelValF       = 0.015
+res@cnLevelSpacingF      = .0015
+
+
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,t3_n(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.0015                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.0015                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.00025                    ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,t3_n(:,:),res1)
+
+;;overlay(plot,contour_psl)
+
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+
+dmin1        = min(u_r1_DIFF)
+dmax1        = max(u_r1_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","u_r_DIFF_90_185_lhs2_final_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+; gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -15
+res@cnMaxLevelValF       = 15
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,u_r1_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -15                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 15                    ; set the maximum contour level
+res1@cnLevelSpacingF = 1                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,u_r1_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+dmin1        = min(v_t1_DIFF)
+dmax1        = max(v_t1_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","v_t_DIFF_90_185_lhs2_final_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+; gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -15
+res@cnMaxLevelValF       = 15
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,v_t1_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -15                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 15                    ; set the maximum contour level
+res1@cnLevelSpacingF = 1                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,v_t1_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+
+
+
+dmin1        = min(ws_DIFF)
+dmax1        = max(ws_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","ws_DIFF_90_185_lhs2_final_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+; gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -15
+res@cnMaxLevelValF       = 15
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,ws_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -15                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 15                    ; set the maximum contour level
+res1@cnLevelSpacingF = 1                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,ws_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+dmin1        = min(ws_oc)
+dmax1        = max(ws_oc)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","ws_oc_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;  gsn_reverse_colormap(wks)
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.016
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = 0
+res@cnMaxLevelValF       = 50
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "max = "+dmax+"ms~S~-1~N~"
+res@gsnCenterString              = " " 
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.036
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@trXMinF = -300
+res@trXMaxF = 300
+res@trYMinF = -300
+res@trYMaxF = 300
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+res@tmXTOn = False
+res@tmYROn = False
+
+
+
+plot                            = gsn_csm_contour(wks,ws_oc,res)
+
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = 0.0                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 50.0                    ; set the maximum contour level
+res1@cnLevelSpacingF = 5                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,ws_oc,res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+;  dum =gsn_add_polyline(wks,plot,600,600,resp)
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+;polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+dmin1        = min(ws)
+dmax1        = max(ws)
+dmin         = decimalPlaces(dmin1,2,True)
+dmax         = decimalPlaces(dmax1,2,True)
+
+
+wks = gsn_open_wks("ps","ws_land_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+;  gsn_reverse_colormap(wks)
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = 0
+res@cnMaxLevelValF       = 50
+res@cnLevelSpacingF      = .25
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "max = "+ dmax+" ms~S~-1~N~"
+res@gsnCenterString  = " "
+;  res@gsnRightString = "max = "+dmax+" m/s"
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = " Wind Speed "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.016
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@trXMinF = -300
+res@trXMaxF = 300
+res@trYMinF = -300
+res@trYMaxF = 300
+
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                            = gsn_csm_contour(wks,ws,res)
+
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = 0.0                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 50.0                    ; set the maximum contour level
+res1@cnLevelSpacingF = 5                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,ws,res1)
+
+
+        res_vc = True
+        res_vc@gsnDraw                    = False
+        res_vc@gsnFrame                   = False
+        res_vc@vcGlyphStyle               = "LineArrow"
+        res_vc@vcLineArrowThicknessF      = 1.2
+        res_vc@vcMinDistanceF             = 0.015
+        res_vc@vcRefLengthF               = 0.012
+        res_vc@vcRefAnnoOn               = True
+        res_vc@vcRefMagnitudeF           = 35
+        res_vc@vcRefAnnoString1          = "35 ms~S~-1~N~"
+        res_vc@vcRefAnnoSide             = "Top"
+        res_vc@vcRefAnnoString2On        = False
+        res_vc@vcRefAnnoPerimOn          = True
+        res_vc@vcRefAnnoOrthogonalPosF   = -0.15
+        res_vc@vcRefAnnoParallelPosF     = 0.999
+        res_vc@vcRefAnnoBackgroundColor  = "White"
+        res_vc@vcVectorDrawOrder         = "PostDraw"
+
+  vector = gsn_csm_vector(wks,u(:,:),v(:,:),res_vc)
+
+;overlay(plot,vector)
+
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+;overlay(plot,vector)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+;  dum =gsn_add_polyline(wks,plot,600,600,resp)
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(IMB_DIFF)
+dmax1        = max(IMB_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","IMB_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+;  gsn_reverse_colormap(wks)
+;  gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.003
+res@cnMaxLevelValF       = 0.003
+res@cnLevelSpacingF      = .0001
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = " -vr*(dvr/dr) ";
+
+res@gsnCenterString = "   "
+
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.036
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,IMB_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0001                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+contour_psl = gsn_csm_contour(wks,IMB_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+;  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+  
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(IMB)
+dmax1        = max(IMB)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","IMB_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.015
+res@cnMaxLevelValF       = 0.015
+res@cnLevelSpacingF      = .0015
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+;  res@lbTitleString        = "m/s" ; bar title
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+
+;  res@gsnRightString = "max = "+dmax+" m/s"
+;  res@gsnCenterString     = " -vr*(dvr/dr) ";
+
+res@gsnCenterString = "   "
+
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+;  res@gsnCenterString      = " d(u_r)/dt "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.036
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,IMB(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+;  res1@cnLinesOn                   = True
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.0015                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.0015                    ; set the maximum contour level
+res1@cnLevelSpacingF = 0.00025                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+;  res1@gsnContourZeroLineThicknessF = 0            ; eliminates zero contour
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+;  res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,IMB(:,:),res1)
+
+;;overlay(plot,contour_psl)
+
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+;  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+;  polyres@gsMarkerSizeF = 12.0           ; select size to avoid streaking
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+;  gsn_polymarker(wks,plot,lonpt,latpt,polyres)  ; draw polymarkers
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(UBL_DIFF)
+dmax1        = max(UBL_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","UBL_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+
+;res@cnLevelSelectionMode = "ManualLevels"
+;res@cnMinLevelValF       = -0.015
+;res@cnMaxLevelValF       = 0.015
+;res@cnLevelSpacingF      = .001
+
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.003
+res@cnMaxLevelValF       = 0.003
+res@cnLevelSpacingF      = .0001
+
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,UBL_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0001                    ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+
+contour_psl = gsn_csm_contour(wks,UBL_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(UBL)
+dmax1        = max(UBL)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","UBL_"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+
+;res@cnLevelSelectionMode = "ManualLevels"
+;res@cnMinLevelValF       = -0.015
+;res@cnMaxLevelValF       = 0.015
+;res@cnLevelSpacingF      = .001
+
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.015
+res@cnMaxLevelValF       = 0.015
+res@cnLevelSpacingF      = .0015
+
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+res@tmXTOn = False
+res@tmYROn = False
+
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+plot                      = gsn_csm_contour(wks,UBL(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.0015                    ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.0015                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0005                    ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+
+contour_psl = gsn_csm_contour(wks,UBL(:,:),res1)
+
+;;overlay(plot,contour_psl)
+
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(t0_DIFF)
+dmax1        = max(t0_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t0_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.015
+res@cnMaxLevelValF       = 0.015
+res@cnLevelSpacingF      = .0015
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 5
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,t0_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.01                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.01                   ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0005                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+
+contour_psl = gsn_csm_contour(wks,t0_DIFF(:,:),res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+dmin1        = min(dt_n_DIFF)
+dmax1        = max(dt_n_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","dt_n_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.015
+res@cnMaxLevelValF       = 0.015
+res@cnLevelSpacingF      = .0015
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,dt_n_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.01                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.01                    ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0005                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+
+contour_psl = gsn_csm_contour(wks,dt_n_DIFF(:,:),res1)
+
+;;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+;  gsn_text_ndc(wks,coastline2+" km from coastline",.35,.95,txres)
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+dmin1        = min(t0_DIFF)
+dmax1        = max(t0_DIFF)
+dmin         = decimalPlaces(dmin1,4,True)
+dmax         = decimalPlaces(dmax1,4,True)
+
+
+wks = gsn_open_wks("ps","t0_DIFF"+nt)
+gsn_define_colormap(wks,"NCV_blue_red")
+
+
+res                = True
+res@gsnDraw        = False
+res@gsnFrame       = False
+res@gsnAddCyclic   = False
+res@gsnMaximize = True
+res@cnFillOn                    = True
+res@cnLinesOn                   = False
+res@tmXBLabelFontHeightF = 0.014
+res@tmYLLabelFontHeightF = 0.016
+res@tmXBLabelFont = "times-bold"
+res@tmYLLabelFont = "times-bold"
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF       = -0.003
+res@cnMaxLevelValF       = 0.003
+res@cnLevelSpacingF      = .0001
+res@lbBoxLinesOn         = False     ; Turn off labelbar box lines
+res@lbLabelsOn           = True
+res@lbTitleOn            = False
+res@lbOrientation        = "Vertical"
+res@lbTitleFont          = "times-bold"
+res@lbTitlePosition      = "Right"                           ; title location
+res@lbTitleDirection     = "Across"                          ; letter angle
+res@lbTitleAngleF        = 90.                               ; title angle
+res@lbTitleFontHeightF   = 0.012                              ; font height
+res@lbLabelFont  = "times-bold"
+res@lbLabelStride = 10
+res@lbLabelFontHeightF = 0.016
+res@gsnRightString              = "min | max = "+ dmin+" | "+dmax
+res@gsnCenterString = "   "
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@cnLineLabelsOn = False
+res@cnInfoLabelOn  = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont   = "times-bold"
+res@pmTickMarkDisplayMode = "Always"
+res@mpFillOn             = False
+res@mpGeophysicalLineThicknessF = 2
+res@mpOutlineBoundarySets= "geophysicalandusstates"
+res@mpDataBaseVersion    = "HighRes"
+res@mpDataSetName        = "Earth..2"
+res@gsnRightString       = "min | max = "+ dmin+" | "+dmax
+res@mpGeophysicalLineThicknessF = 2
+res@mpGeophysicalLineColor = "grey68"
+res@gsnRightStringFontHeightF = 0.016
+res@gsnCenterStringFontHeightF = 0.012
+res@trXMinF                  = -300
+res@trXMaxF                  = 300
+res@trYMinF                  = -300
+res@trYMaxF                  = 300
+res@cnLineLabelsOn           = False
+res@cnInfoLabelOn            = False
+res@pmLabelBarOrthogonalPosF = -0.040
+res@txFont                   = "times-bold"
+res@pmTickMarkDisplayMode    = "Always"
+res@mpOutlineOn              = False
+res@tmXTOn = False
+res@tmYROn = False
+res@tiYAxisString = "Distance from Center (km)"           ; y axis title
+res@tiXAxisString = "Distance from Center (km)"                 ; x axis title
+res@tiXAxisFont = "times-bold"
+res@tiXAxisFontHeightF = 0.016
+res@tiYAxisFontHeightF = 0.016
+res@tiYAxisFont = "times-bold"
+
+
+plot                      = gsn_csm_contour(wks,t0_DIFF(:,:),res)
+
+res1  = True
+res1@gsnDraw        = False
+res1@gsnFrame       = False
+res1@gsnAddCyclic   = False
+res1@cnFillOn                    = False
+
+res1@cnLevelSelectionMode = "ManualLevels"    ; manually set the contour levels with the following 3 resources
+res1@cnMinLevelValF  = -0.003                     ; set the minimum contour level
+res1@cnMaxLevelValF  = 0.003                    ; set the maximum contour level
+res1@cnLevelSpacingF = 0.0001                     ; set the interval between contours
+res1@cnLineLabelsOn = True
+res1@cnInfoLabelOn  = True
+res1@cnLineLabelBackgroundColor = -1
+res1@gsnContourNegLineDashPattern = 1       ; sets negative contours to dash pattern 1
+res1@gsnContourPosLineDashPattern = 0
+res1@gsnContourZeroLineThicknessF = 0
+res1@mpOutlineOn          = False
+res1@cnLineThicknessF    = 2.0
+
+contour_psl = gsn_csm_contour(wks,t0_DIFF(:,:),res1)
+
+;overlay(plot,contour_psl)
+ 
+  txres               = True                      ; text mods desired
+  txres@txFontHeightF = 0.018                     ; text font height
+  txres@txJust        = "CenterLeft"              ; Default is "CenterCenter".
+  txres@txFont = "times-bold"
+
+
+  gsn_text_ndc(wks,time_strings(nt)+ " ("+coastline2+" km )",.35,.95,txres)
+
+;  gsn_text_ndc(wks,":F18:s",.48,.90,txres)
+   txres@txFontHeightF = 0.035                   
+;  gsn_text_ndc(wks,":F18:d",.48,.90,txres)
+
+  txres@txFontHeightF = 0.030    
+;  gsn_text_ndc(wks,":F10:p",.51,.89,txres)
+;  gsn_text_ndc(wks,"___",.48,.88,txres)
+
+
+lineRes = True
+
+lineRes@gsLineColor = "black"
+
+lineRes@gsLineThicknessF = 2.0 ; adjust for desired thickness
+
+
+
+xHorizontal = (/ -300, 300 /) ; or whatever your x-axis limits are
+
+yHorizontal = (/ 0, 0 /)
+
+
+
+; Coordinates for the vertical line
+
+xVertical = (/ 0, 0 /)
+
+yVertical = (/ -300, 300 /) ; or whatever your y-axis limits are
+
+
+
+; Create and add the lines to the plot
+
+lineHorizontal = gsn_add_polyline(wks, plot, xHorizontal, yHorizontal, lineRes)
+
+lineVertical = gsn_add_polyline(wks, plot, xVertical, yVertical, lineRes)
+resp                  = True                      ; polyline mods desired
+resp@gsLineColor      = "Black"                     ; color of lines
+resp@gsLineThicknessF = 6.0                       ; thickness of lines
+
+
+x_coords = (/ -300, 300 /)
+y_coords = (/ coastline, coastline /)
+
+polyline = gsn_add_polyline(wks, plot, x_coords, y_coords, resp)
+pi = 4.0*atan(1.0)  ; Define pi
+
+xc = 0              ; x-coordinate of the circle's center
+yc = 0              ; y-coordinate of the circle's center
+radius = 40         ; radius of the circle
+
+numPoints = 100     ; number of points to draw the circle
+x = new(numPoints, float)  ; array to hold x-coordinates
+y = new(numPoints, float)  ; array to hold y-coordinates
+
+do i = 0, numPoints-1
+  angle = 2 * pi * i / numPoints
+  x(i) = xc + radius * cos(angle)
+  y(i) = yc + radius * sin(angle)
+end do
+
+;print(x+" "+y)
+
+; Define polyline resources for the circle
+circleRes                   = True
+circleRes@gsLineThicknessF  = 10.0                ; Line thickness
+circleRes@gsLineColor       = "gray68"             ; Line color
+circleRes@gsLineDashPattern = 1
+
+
+
+draw(plot)
+
+  gsn_polyline(wks, plot, x, y, circleRes)
+
+;draw(plot)
+
+polyres               = True          ; poly marker mods desired
+polyres@gsMarkerIndex = 16            ; choose circle as polymarker
+polyres@gsMarkerColor = (/"white"/)   ; choose color
+
+frame(wks)
+delete(wks)
+delete(plot)
+delete(contour_psl)
+
+
+delete(res)
+delete(res1)
+
+
+end do
+
+
